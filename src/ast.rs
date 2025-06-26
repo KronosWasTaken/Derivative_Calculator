@@ -15,7 +15,6 @@ pub enum Op {
 /// The AST is a tree-like data structure that mirrors the structure of a mathematical expression.
 #[derive(Debug, PartialEq)]
 pub enum Expr {
-    /// A numeric literal, such as `3.14` or `42`.
     Num(f64),
     /// A variable, such as `x` or `y`.
     Var(String),
@@ -26,6 +25,8 @@ pub enum Expr {
         left: Box<Expr>,
         right: Box<Expr>,
     },
+     Func(String,Box<Expr>)
+
 }
 
 /// Implements the `Display` trait to define how an `Op` is converted to a string.
@@ -50,9 +51,11 @@ impl Display for Expr {
             Expr::Num(n) => write!(f, "{}", n),
             Expr::Var(s) => write!(f, "{}", s),
             Expr::BinaryOp { op, left, right } => {
-                // Parentheses are used to clarify the order of operations.
                 write!(f, "({} {} {})", left, op, right)
+            }
+            Expr::Func(name,arg) => {
+                write!(f, "{} {}", name,arg)
             }
         }
     }
-} 
+}

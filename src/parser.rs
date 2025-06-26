@@ -45,6 +45,14 @@ impl Parser {
         match self.consume() {
             Some(Token::Num(n)) => Ok(Expr::Num(*n)),
             Some(Token::Var(s)) => Ok(Expr::Var(s.clone())),
+            
+            Some(Token::Func(name,arg_tokens)) => {
+    let mut arg_parser = Parser::new(arg_tokens.clone());
+    let arg_expr = arg_parser.parse_expr()?;
+  Ok(Expr::Func(name.clone(), Box::new(arg_expr)))
+            },
+        
+          
             Some(Token::LParen) => {
                 // If an opening parenthesis is found, recursively call `parse_expr`
                 // to handle the nested expression.
@@ -121,4 +129,10 @@ impl Parser {
         }
         Ok(left)
     }
+
+
+
+
+
 } 
+
