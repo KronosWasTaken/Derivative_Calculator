@@ -2,7 +2,7 @@ use std::fmt::{self, Display};
 
 /// Represents the set of mathematical operators that can appear in an expression.
 /// Each variant is a binary operator that accepts two operands.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq,Clone)]
 pub enum Op {
     Add,    // '+'
     Sub,    // '-'
@@ -13,7 +13,7 @@ pub enum Op {
 
 /// Represents a node within the Abstract Syntax Tree (AST).
 /// The AST is a tree-like data structure that mirrors the structure of a mathematical expression.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq,Clone)]
 pub enum Expr {
     Num(f64),
     /// A variable, such as `x` or `y`.
@@ -25,7 +25,8 @@ pub enum Expr {
         left: Box<Expr>,
         right: Box<Expr>,
     },
-     Func(String,Box<Expr>)
+     Func(String,Box<Expr>),
+     
 
 }
 

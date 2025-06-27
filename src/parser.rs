@@ -45,12 +45,70 @@ impl Parser {
         match self.consume() {
             Some(Token::Num(n)) => Ok(Expr::Num(*n)),
             Some(Token::Var(s)) => Ok(Expr::Var(s.clone())),
+    Some(Token::Func(name)) => {
+    let func_name = name.clone();
+    self.consume(); // consume the Func token
 
-            Some(Token::Func(name,arg_tokens)) => {
-    let mut arg_parser = Parser::new(arg_tokens.clone());
-    let arg_expr = arg_parser.parse_expr()?;
-  Ok(Expr::Func(name.clone(), Box::new(arg_expr)))
-            },
+    match self.peek() {
+        Some(Token::LParen) => {
+            self.consume(); // consume '('
+            let arg_expr = self.parse_expr()?;
+            match self.consume() {
+                Some(Token::RParen) => Ok(Expr::Func(func_name, Box::new(arg_expr))),
+                _ => Err("Expected ')' after function argument".to_string()),
+            }
+        }
+
+        Some(Token::Pow) => {
+            self.consume(); // consume '^'
+            let exponent = self.parse_factor()?; // e.g., Num(2)
+
+            match self.consume() {
+                Some(Token::LParen) => {
+                    let mut depth = 1;
+                    let mut arg_tokens = Vec::new();
+
+                    while let Some(tok) = self.consume() {
+                        match tok {
+                            Token::LParen => {
+                                depth += 1;
+                                arg_tokens.push(tok.clone());
+                            }
+                            Token::RParen => {
+                                depth -= 1;
+                                if depth == 0 {
+                                    break;
+                                } else {
+                                    arg_tokens.push(tok.clone());
+                                }
+                            }
+                            _ => arg_tokens.push(tok.clone()),
+                        }
+                    }
+
+                    if depth != 0 {
+                        return Err("Unmatched parentheses in powered function argument".to_string());
+                    }
+
+                    let mut arg_parser = Parser::new(arg_tokens);
+                    let arg_expr = arg_parser.parse_expr()?;
+
+                    let func_expr = Expr::Func(func_name, Box::new(arg_expr));
+
+                    Ok(Expr::BinaryOp {
+                        op: Op::Pow,
+                        left: Box::new(func_expr),
+                        right: Box::new(exponent),
+                    })
+                }
+                _ => Err("Expected '(' after powered function name".to_string()),
+            }
+        }
+
+        _ => Err("Expected '(' or '^' after function name".to_string()),
+    }
+},
+
         
           
             Some(Token::LParen) => {
