@@ -21,7 +21,7 @@ fn tokenize_help(input: &str) -> Result<Vec<Token>, String> {
     let mut tokens = Vec::new();              // Accumulates tokens found
     let mut chars = input.chars().peekable(); // Peekable iterator for lookahead
     let mut last_token_was_operand = false;  // Tracks if previous token was a number/variable/func (for implicit multiplication)
-    let parser_functions = ["sin", "cos", "tan", "cosec", "sec", "cot", "log"]; // Supported functions
+    let parser_functions = ["sin", "cos", "tan", "cosec", "sec", "cot", "log","exp"]; // Supported functions
 
     while let Some(&c) = chars.peek() {
         match c {

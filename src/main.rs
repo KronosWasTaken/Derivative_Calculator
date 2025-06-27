@@ -4,6 +4,12 @@ mod ast;
 mod tokenizer;
 mod parser;
 
+
+
+
+
+
+
 fn main() {
     loop {
         print!("Enter string: ");
@@ -34,7 +40,13 @@ fn main() {
                     Ok(tokens) => {
                         let mut parser = parser::Parser::new(tokens);
                         match parser.parse() {
-                            Ok(expr) => println!("{}", expr),
+                            Ok(expr) =>{
+                                println!("Printing the expression");
+                                println!("{}",expr);
+                              
+                         
+        
+                            },
                             Err(e) => eprintln!("Parser error: {}", e),
                         }
                     }

@@ -45,7 +45,7 @@ impl Parser {
         match self.consume() {
             Some(Token::Num(n)) => Ok(Expr::Num(*n)),
             Some(Token::Var(s)) => Ok(Expr::Var(s.clone())),
-            
+
             Some(Token::Func(name,arg_tokens)) => {
     let mut arg_parser = Parser::new(arg_tokens.clone());
     let arg_expr = arg_parser.parse_expr()?;
@@ -131,8 +131,5 @@ impl Parser {
     }
 
 
-
-
-
-} 
+}
 
