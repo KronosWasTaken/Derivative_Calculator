@@ -42,85 +42,76 @@ impl Parser {
     /// or sub-expressions enclosed in parentheses. This function handles the
     /// highest level of operator precedence.
     fn parse_primary(&mut self) -> Result<Expr, String> {
-        match self.consume() {
-            Some(Token::Num(n)) => Ok(Expr::Num(*n)),
-            Some(Token::Var(s)) => Ok(Expr::Var(s.clone())),
-    Some(Token::Func(name)) => {
-    let func_name = name.clone();
-    self.consume(); // consume the Func token
-
-    match self.peek() {
-        Some(Token::LParen) => {
-            self.consume(); // consume '('
-            let arg_expr = self.parse_expr()?;
-            match self.consume() {
-                Some(Token::RParen) => Ok(Expr::Func(func_name, Box::new(arg_expr))),
-                _ => Err("Expected ')' after function argument".to_string()),
-            }
-        }
-
-        Some(Token::Pow) => {
-            self.consume(); // consume '^'
-            let exponent = self.parse_factor()?; // e.g., Num(2)
-
-            match self.consume() {
-                Some(Token::LParen) => {
-                    let mut depth = 1;
-                    let mut arg_tokens = Vec::new();
-
-                    while let Some(tok) = self.consume() {
-                        match tok {
-                            Token::LParen => {
-                                depth += 1;
-                                arg_tokens.push(tok.clone());
-                            }
-                            Token::RParen => {
-                                depth -= 1;
-                                if depth == 0 {
-                                    break;
-                                } else {
-                                    arg_tokens.push(tok.clone());
-                                }
-                            }
-                            _ => arg_tokens.push(tok.clone()),
+        // Look ahead at the next token without consuming
+        let next_token = self.peek().cloned();
+        match next_token {
+            Some(Token::Num(n)) => {
+                self.consume();
+                Ok(Expr::Num(n))
+            },
+            Some(Token::Var(ref s)) => {
+                self.consume();
+                Ok(Expr::Var(s.clone()))
+            },
+            Some(Token::Func(ref name)) => {
+                self.consume(); // consume the function token
+                // Look ahead for function power: e.g., sin^2(x) or sin^2 x or log^2(x)
+                let is_power = if let (Some(Token::Pow), Some(Token::Num(_))) = (self.peek(), self.tokens.get(self.pos + 1)) {
+                    true
+                } else {
+                    false
+                };
+                if is_power {
+                    self.consume(); // consume '^'
+                    let power_val = if let Some(Token::Num(n)) = self.consume() {
+                        *n
+                    } else {
+                        return Err("Expected number after '^' in function power".to_string());
+                    };
+                    // Now parse the argument (parenthesis or variable/function/number)
+                    let arg = if let Some(Token::LParen) = self.peek() {
+                        self.consume(); // consume '('
+                        let arg_expr = self.parse_expr()?;
+                        match self.consume() {
+                            Some(Token::RParen) => arg_expr,
+                            _ => return Err("Expected ')' after function argument".to_string()),
                         }
-                    }
-
-                    if depth != 0 {
-                        return Err("Unmatched parentheses in powered function argument".to_string());
-                    }
-
-                    let mut arg_parser = Parser::new(arg_tokens);
-                    let arg_expr = arg_parser.parse_expr()?;
-
-                    let func_expr = Expr::Func(func_name, Box::new(arg_expr));
-
+                    } else if matches!(self.peek(), Some(Token::Var(_)) | Some(Token::Num(_)) | Some(Token::Func(_))) {
+                        self.parse_primary()?
+                    } else {
+                        return Err("Expected function argument after power".to_string());
+                    };
+                    let func_expr = Expr::Func(name.clone(), Box::new(arg));
                     Ok(Expr::BinaryOp {
                         op: Op::Pow,
                         left: Box::new(func_expr),
-                        right: Box::new(exponent),
+                        right: Box::new(Expr::Num(power_val)),
                     })
+                } else {
+                    // Robust function application: exp(x) or exp x
+                    let arg = if let Some(Token::LParen) = self.peek() {
+                        self.consume(); // consume '('
+                        let arg_expr = self.parse_expr()?;
+                        match self.consume() {
+                            Some(Token::RParen) => arg_expr,
+                            _ => return Err("Expected ')' after function argument".to_string()),
+                        }
+                    } else if matches!(self.peek(), Some(Token::Var(_)) | Some(Token::Num(_)) | Some(Token::Func(_))) {
+                        self.parse_primary()?
+                    } else {
+                        return Err("Expected function argument after function name".to_string());
+                    };
+                    Ok(Expr::Func(name.clone(), Box::new(arg)))
                 }
-                _ => Err("Expected '(' after powered function name".to_string()),
-            }
-        }
-
-        _ => Err("Expected '(' or '^' after function name".to_string()),
-    }
-},
-
-        
-          
+            },
             Some(Token::LParen) => {
-                // If an opening parenthesis is found, recursively call `parse_expr`
-                // to handle the nested expression.
+                self.consume(); // consume '('
                 let expr = self.parse_expr()?;
-                // A closing parenthesis is then required.
                 match self.consume() {
                     Some(Token::RParen) => Ok(expr),
                     _ => Err("Expected ')'".to_string()),
                 }
-            }
+            },
             _ => Err("Expected a number, variable, or '('".to_string()),
         }
     }
@@ -130,16 +121,29 @@ impl Parser {
     /// meaning `2^3^4` is parsed as `2^(3^4)`.
     fn parse_factor(&mut self) -> Result<Expr, String> {
         let mut left = self.parse_primary()?;
-        while let Some(Token::Pow) = self.peek() {
-            self.consume(); // Consume the '^' token.
-            // Recursively call `parse_factor` for the right-hand side to handle
-            // right-associativity.
-            let right = self.parse_factor()?;
-            left = Expr::BinaryOp {
-                op: Op::Pow,
-                left: Box::new(left),
-                right: Box::new(right),
-            };
+        // Handle implicit multiplication: e.g., 2sinx, xsinx, (x+1)sinx
+        loop {
+            match self.peek() {
+                Some(Token::Func(_)) | Some(Token::Var(_)) | Some(Token::Num(_)) | Some(Token::LParen) => {
+                    // For function, parse as a primary (which will consume its argument)
+                    let right = self.parse_primary()?;
+                    left = Expr::BinaryOp {
+                        op: Op::Mul,
+                        left: Box::new(left),
+                        right: Box::new(right),
+                    };
+                }
+                Some(Token::Pow) => {
+                    self.consume(); // Consume the '^' token.
+                    let right = self.parse_factor()?;
+                    left = Expr::BinaryOp {
+                        op: Op::Pow,
+                        left: Box::new(left),
+                        right: Box::new(right),
+                    };
+                }
+                _ => break,
+            }
         }
         Ok(left)
     }
@@ -187,7 +191,5 @@ impl Parser {
         }
         Ok(left)
     }
-
-
 }
 

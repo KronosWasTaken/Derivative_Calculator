@@ -6,12 +6,54 @@ mod parser;
 mod derivative;
 mod function_table;
 
-
-
-
-
+fn print_manual() {
+    println!("\n=== Derivative Calculator Manual ===");
+    println!("You can input expressions using the following syntax:");
+    println!("  - sin(x)         : Sine of x");
+    println!("  - cos(x)         : Cosine of x");
+    println!("  - tan(x)         : Tangent of x");
+    println!("  - exp(x)         : Exponential function, e^x");
+    println!("  - log(x)         : Natural logarithm (ln(x))");
+    println!("  - sin^2(x)       : (sin(x))^2");
+    println!("  - cos^3 x        : (cos(x))^3");
+    println!("  - 2sinx          : 2 * sin(x)");
+    println!("  - x^3 + 2x + 1   : Polynomial");
+    println!("  - (x+1)*(x-1)    : Parentheses for grouping");
+    println!("  - exit           : Quit the program");
+    println!("\nTips:");
+    println!("- You can use implicit multiplication: 2x means 2*x, sin2x means sin(2*x)");
+    println!("- You can use powers on functions: sin^2(x) means (sin(x))^2");
+    println!("- You can use parentheses for clarity: sin^2(x+1)");
+    println!("- Supported functions: sin, cos, tan, exp, log, etc.\n");
+}
 
 fn main() {
+    loop {
+        println!("\n=== Derivative Calculator ===");
+        println!("1. Show manual");
+        println!("2. Enter string");
+        println!("3. Exit");
+        print!("Choose an option (1, 2, or 3): ");
+        io::stdout().flush().unwrap();
+        let mut choice = String::new();
+        if io::stdin().read_line(&mut choice).unwrap() == 0 {
+            println!();
+            break;
+        }
+        let choice = choice.trim();
+        if choice == "1" {
+            print_manual();
+            continue;
+        } else if choice == "2" {
+            break;
+        } else if choice == "3" || choice.eq_ignore_ascii_case("exit") {
+            println!("Exiting Derivative Calculator");
+            return;
+        } else {
+            println!("Invalid option. Please enter 1, 2, or 3.");
+        }
+    }
+
     loop {
         print!("Enter string: ");
         io::stdout().flush().unwrap(); // Still safe to unwrap here
@@ -45,7 +87,8 @@ fn main() {
                                 println!("Printing the expression");
                                 println!("{}",expr);
                                 let der=derivative::derivative(&expr, "x");
-                                println!("derivative:{}",der);
+                                let simp = derivative::simplify(&der);
+                                println!("derivative:{}",simp);
                               
                          
         

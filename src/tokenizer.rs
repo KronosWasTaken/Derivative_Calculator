@@ -3,7 +3,7 @@
 pub enum Token {
     Num(f64),               // Numeric literals, e.g. 123 or 4.56
     Var(String),            // Variable names, e.g. x, y, or abc
-    Func(String), // Function call with name and tokens representing arguments, e.g. sin(x)
+    Func(String), // Function call with name, e.g. sin(x)
     Plus,                   // '+'
     Minus,                  // '-'
     Mul,                    // '*'
@@ -21,7 +21,7 @@ fn tokenize_help(input: &str) -> Result<Vec<Token>, String> {
     let mut tokens = Vec::new();              // Accumulates tokens found
     let mut chars = input.chars().peekable(); // Peekable iterator for lookahead
     let mut last_token_was_operand = false;  // Tracks if previous token was a number/variable/func (for implicit multiplication)
-    let parser_functions = ["sin", "cos", "tan", "cosec", "sec", "cot", "log","exp"]; // Supported functions
+    let parser_functions = ["sin", "cos", "tan", "cosec", "sec", "cot", "log","exp"];
 
     while let Some(&c) = chars.peek() {
         match c {
@@ -47,11 +47,10 @@ fn tokenize_help(input: &str) -> Result<Vec<Token>, String> {
             }
             // Handle variables and function names (alphabetic strings)
             'a'..='z' | 'A'..='Z' => {
-                let mut var_str = String::new();
-                // Accumulate consecutive alphabetic characters
+                let mut ident_str = String::new();
                 while let Some(&c) = chars.peek() {
                     if c.is_alphabetic() {
-                        var_str.push(c);
+                        ident_str.push(c);
                         chars.next();
                     } else {
                         break;
@@ -61,17 +60,29 @@ fn tokenize_help(input: &str) -> Result<Vec<Token>, String> {
                 if last_token_was_operand {
                     tokens.push(Token::Mul);
                 }
-                // Check if the string is a recognized function name
-                if parser_functions.contains(&var_str.as_str()) {
-        
-                       tokens.push(Token::Func(var_str));
-                        last_token_was_operand = true;
-                    } 
-                 else {
-                    // Just a regular variable
-                    tokens.push(Token::Var(var_str));
-                    last_token_was_operand = true;
+                // Try to split the identifier into function(s) and variable(s)
+                let mut idx = 0;
+                let len = ident_str.len();
+                let ident_chars: Vec<char> = ident_str.chars().collect();
+                while idx < len {
+                    let mut matched_func = None;
+                    for func in &parser_functions {
+                        if ident_str[idx..].starts_with(func) {
+                            matched_func = Some(*func);
+                            break;
+                        }
+                    }
+                    if let Some(func) = matched_func {
+                        tokens.push(Token::Func(func.to_string()));
+                        idx += func.len();
+                    } else {
+                        // Not a function, so treat the rest as a variable
+                        let var: String = ident_chars[idx..].iter().collect();
+                        tokens.push(Token::Var(var));
+                        break;
+                    }
                 }
+                last_token_was_operand = true;
             }
             // Handle operators '+', '-', '*', '/', '^'
             '+' => {
@@ -101,7 +112,14 @@ fn tokenize_help(input: &str) -> Result<Vec<Token>, String> {
             }
             // Handle parentheses, inserting implicit multiplication if needed (e.g., "3(x+1)")
             '(' => {
-                if last_token_was_operand {
+                // Check for function power pattern: Func, Pow, Num, (
+                let len = tokens.len();
+                let is_func_power = len >= 3 &&
+                    matches!(tokens.get(len-3), Some(Token::Func(_))) &&
+                    matches!(tokens.get(len-2), Some(Token::Pow)) &&
+                    matches!(tokens.get(len-1), Some(Token::Num(_)));
+                let is_func_call = len >= 1 && matches!(tokens.get(len-1), Some(Token::Func(_)));
+                if last_token_was_operand && !is_func_power && !is_func_call {
                     tokens.push(Token::Mul);
                 }
                 tokens.push(Token::LParen);
