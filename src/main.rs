@@ -3,7 +3,8 @@ use std::io::{self, Write};
 mod ast;
 mod tokenizer;
 mod parser;
-
+mod derivative;
+mod function_table;
 
 
 
@@ -43,6 +44,8 @@ fn main() {
                             Ok(expr) =>{
                                 println!("Printing the expression");
                                 println!("{}",expr);
+                                let der=derivative::derivative(&expr, "x");
+                                println!("derivative:{}",der);
                               
                          
         

@@ -3,7 +3,7 @@
 pub enum Token {
     Num(f64),               // Numeric literals, e.g. 123 or 4.56
     Var(String),            // Variable names, e.g. x, y, or abc
-    Func(String, Vec<Token>), // Function call with name and tokens representing arguments, e.g. sin(x)
+    Func(String), // Function call with name and tokens representing arguments, e.g. sin(x)
     Plus,                   // '+'
     Minus,                  // '-'
     Mul,                    // '*'
@@ -63,36 +63,11 @@ fn tokenize_help(input: &str) -> Result<Vec<Token>, String> {
                 }
                 // Check if the string is a recognized function name
                 if parser_functions.contains(&var_str.as_str()) {
-                    // Expect '(' after function name
-                    if let Some(&'(') = chars.peek() {
-                        chars.next(); // consume '('
-                        let mut depth = 1;            // Track nested parentheses depth
-                        let mut func_arg_str = String::new(); // Collect function argument substring
-
-                        // Collect all characters inside matching parentheses
-                        while let Some(c) = chars.next() {
-                            if c == '(' {
-                                depth += 1;
-                            } else if c == ')' {
-                                depth -= 1;
-                                if depth == 0 {
-                                    break; // End of function argument
-                                }
-                            }
-                            func_arg_str.push(c);
-                        }
-
-                        // Recursively tokenize the function argument substring
-                        let func_args_tokens = tokenize(&func_arg_str)?;
-                        // Push a function token with name and argument tokens
-                        tokens.push(Token::Func(var_str, func_args_tokens));
+        
+                       tokens.push(Token::Func(var_str));
                         last_token_was_operand = true;
-                    } else {
-                        // Function name without parentheses treated as a variable
-                        tokens.push(Token::Var(var_str));
-                        last_token_was_operand = true;
-                    }
-                } else {
+                    } 
+                 else {
                     // Just a regular variable
                     tokens.push(Token::Var(var_str));
                     last_token_was_operand = true;
