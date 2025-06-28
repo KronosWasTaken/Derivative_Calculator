@@ -67,7 +67,6 @@ impl Parser {
        
         Expr::Num(n_val)
     } else if let Some(Token::LParen) = self.peek() {
-        println!("Parsing power exponent inside parentheses");
         self.consume(); // consume '('
         let inner = self.parse_expr()?;  // parse inner expression
         match self.consume() {
@@ -78,18 +77,12 @@ impl Parser {
             _ => return Err("Expected ')' after power expression".to_string()),
         }
     } else {
-        println!("Parsing power exponent chain (implicit multiplication)");
         self.parse_exponent_chain()?
     }
 } else {
     // No power '^' found, so power is implicitly 1
     Expr::Num(1.0)
 };
-
-
-self.consume(); //to move one step to LParen
-println!("Next token: {:?}", self.peek());
-
 
     // Now parse the function argument AFTER the power expression
     let arg = if matches!(self.peek(), Some(Token::LParen)) {
