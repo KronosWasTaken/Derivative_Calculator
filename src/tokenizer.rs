@@ -1,3 +1,5 @@
+use crate::constants::is_constant;
+
 /// Defines the different types of tokens recognized in the input expression.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
@@ -21,16 +23,23 @@ fn tokenize_help(input: &str) -> Result<Vec<Token>, String> {
     let mut tokens = Vec::new();              // Accumulates tokens found
     let mut chars = input.chars().peekable(); // Peekable iterator for lookahead
     let mut last_token_was_operand = false;  // Tracks if previous token was a number/variable/func (for implicit multiplication)
-    let parser_functions = [
-        // Regular trigonometric functions
-        "sin", "cos", "tan", "cosec", "sec", "cot", 
+    let mut parser_functions = [
+        // Inverse hyperbolic functions (longest first)
+        "arsinh", "arcosh", "artanh", "arcosech", "arsech", "arcoth",
         // Inverse trigonometric functions
         "arcsin", "arccos", "arctan", "arccsc", "arcsec", "arccot",
+        // Hyperbolic functions
+        "sinh", "cosh", "tanh", "cosech", "sech", "coth",
+        // Regular trigonometric functions
+        "sin", "cos", "tan", "cosec", "sec", "cot", 
         // Logarithmic and exponential functions
         "log", "exp",
         // Additional functions
         "sqrt", "abs"
     ];
+    
+    // Sort by length (longest first) to ensure longer function names are matched before shorter ones
+    parser_functions.sort_by(|a, b| b.len().cmp(&a.len()));
 
     while let Some(&c) = chars.peek() {
         match c {
@@ -75,6 +84,18 @@ fn tokenize_help(input: &str) -> Result<Vec<Token>, String> {
                 let ident_chars: Vec<char> = ident_str.chars().collect();
                 while idx < len {
                     let mut matched_func = None;
+                    
+                    // First check if the remaining part is a constant
+                    let remaining = &ident_str[idx..];
+                    if is_constant(remaining) {
+                        // It's a constant, treat it as a number
+                        if let Some(value) = crate::constants::get_constant(remaining) {
+                            tokens.push(Token::Num(value));
+                            break;
+                        }
+                    }
+                    
+                    // Then check for functions
                     for func in &parser_functions {
                         if ident_str[idx..].starts_with(func) {
                             matched_func = Some(*func);
@@ -85,7 +106,7 @@ fn tokenize_help(input: &str) -> Result<Vec<Token>, String> {
                         tokens.push(Token::Func(func.to_string()));
                         idx += func.len();
                     } else {
-                        // Not a function, so treat the rest as a variable
+                        // Not a function or constant, so treat the rest as a variable
                         let var: String = ident_chars[idx..].iter().collect();
                         tokens.push(Token::Var(var));
                         break;

@@ -6,6 +6,7 @@ mod parser;
 mod derivative;
 mod function_table;
 mod simplifier;
+mod constants;
 
 fn print_manual() {
     println!("\n=== Derivative Calculator Manual ===");
@@ -20,12 +21,16 @@ fn print_manual() {
     println!("  - 2sinx          : 2 * sin(x)");
     println!("  - x^3 + 2x + 1   : Polynomial");
     println!("  - (x+1)*(x-1)    : Parentheses for grouping");
+    println!("  - pi             : Mathematical constant π (3.14159...)");
+    println!("  - e              : Euler's number (2.71828...)");
+    println!("  - deg            : Degree conversion constant (π/180)");
     println!("  - exit           : Quit the program");
     println!("\nTips:");
     println!("- You can use implicit multiplication: 2x means 2*x, sin2x means sin(2*x)");
     println!("- You can use powers on functions: sin^2(x) means (sin(x))^2");
     println!("- You can use parentheses for clarity: sin^2(x+1)");
-    println!("- Supported functions: sin, cos, tan, exp, log, etc.\n");
+    println!("- Supported functions: sin, cos, tan, exp, log, sinh, cosh, tanh, etc.");
+    println!("- Supported constants: pi, π, e, euler, deg, degree\n");
 }
 
 fn main() {

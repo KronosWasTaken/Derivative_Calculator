@@ -1,4 +1,5 @@
 use std::fmt::{self, Display};
+use crate::constants::value_to_constant_name;
 
 /// Represents the set of mathematical operators that can appear in an expression.
 /// Each variant is a binary operator that accepts two operands.
@@ -49,7 +50,14 @@ impl Display for Op {
 impl Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Expr::Num(n) => write!(f, "{}", n),
+            Expr::Num(n) => {
+                // Try to convert the number back to a constant name
+                if let Some(const_name) = value_to_constant_name(*n) {
+                    write!(f, "{}", const_name)
+                } else {
+                    write!(f, "{}", n)
+                }
+            }
             Expr::Var(s) => write!(f, "{}", s),
             Expr::BinaryOp { op, left, right } => {
                 write!(f, "({} {} {})", left, op, right)
