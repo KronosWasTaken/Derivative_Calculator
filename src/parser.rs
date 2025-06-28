@@ -53,57 +53,80 @@ impl Parser {
                 self.consume();
                 Ok(Expr::Var(s.clone()))
             },
-            Some(Token::Func(ref name)) => {
-                self.consume(); // consume the function token
-                // Look ahead for function power: e.g., sin^2(x) or sin^2 x or log^2(x)
-                let is_power = if let (Some(Token::Pow), Some(Token::Num(_))) = (self.peek(), self.tokens.get(self.pos + 1)) {
-                    true
-                } else {
-                    false
-                };
-                if is_power {
-                    self.consume(); // consume '^'
-                    let power_val = if let Some(Token::Num(n)) = self.consume() {
-                        *n
-                    } else {
-                        return Err("Expected number after '^' in function power".to_string());
-                    };
-                    // Now parse the argument (parenthesis or variable/function/number)
-                    let arg = if let Some(Token::LParen) = self.peek() {
-                        self.consume(); // consume '('
-                        let arg_expr = self.parse_expr()?;
-                        match self.consume() {
-                            Some(Token::RParen) => arg_expr,
-                            _ => return Err("Expected ')' after function argument".to_string()),
-                        }
-                    } else if matches!(self.peek(), Some(Token::Var(_)) | Some(Token::Num(_)) | Some(Token::Func(_))) {
-                        self.parse_primary()?
-                    } else {
-                        return Err("Expected function argument after power".to_string());
-                    };
-                    let func_expr = Expr::Func(name.clone(), Box::new(arg));
-                    Ok(Expr::BinaryOp {
-                        op: Op::Pow,
-                        left: Box::new(func_expr),
-                        right: Box::new(Expr::Num(power_val)),
-                    })
-                } else {
-                    // Robust function application: exp(x) or exp x
-                    let arg = if let Some(Token::LParen) = self.peek() {
-                        self.consume(); // consume '('
-                        let arg_expr = self.parse_expr()?;
-                        match self.consume() {
-                            Some(Token::RParen) => arg_expr,
-                            _ => return Err("Expected ')' after function argument".to_string()),
-                        }
-                    } else if matches!(self.peek(), Some(Token::Var(_)) | Some(Token::Num(_)) | Some(Token::Func(_))) {
-                        self.parse_primary()?
-                    } else {
-                        return Err("Expected function argument after function name".to_string());
-                    };
-                    Ok(Expr::Func(name.clone(), Box::new(arg)))
-                }
+            
+           Some(Token::Func(ref name)) => {
+    self.consume(); // consume the function token, e.g., "sin"
+
+    // Check for power operator '^' right after function name
+    let power_expr = if matches!(self.peek(), Some(Token::Pow)) {
+    self.consume(); // consume '^'
+
+    if let Some(Token::Num(n)) = self.peek() {
+        let n_val = *n;
+        self.consume(); // consume number token
+       
+        Expr::Num(n_val)
+    } else if let Some(Token::LParen) = self.peek() {
+        println!("Parsing power exponent inside parentheses");
+        self.consume(); // consume '('
+        let inner = self.parse_expr()?;  // parse inner expression
+        match self.consume() {
+            Some(Token::RParen) => {
+                
+                inner
             },
+            _ => return Err("Expected ')' after power expression".to_string()),
+        }
+    } else {
+        println!("Parsing power exponent chain (implicit multiplication)");
+        self.parse_exponent_chain()?
+    }
+} else {
+    // No power '^' found, so power is implicitly 1
+    Expr::Num(1.0)
+};
+
+
+self.consume(); //to move one step to LParen
+println!("Next token: {:?}", self.peek());
+
+
+    // Now parse the function argument AFTER the power expression
+    let arg = if matches!(self.peek(), Some(Token::LParen)) {
+        self.consume(); // consume '('
+        let arg_expr = self.parse_expr()?;
+        match self.consume() {
+            Some(Token::RParen) => arg_expr,
+            _ => return Err("Expected ')' after function argument".to_string()),
+        }
+    } else if matches!(self.peek(), Some(Token::Var(_)) | Some(Token::Num(_)) | Some(Token::Func(_))) {
+        self.parse_primary()?
+    } else {
+        return Err("Expected function argument after power".to_string());
+    };
+
+
+
+    // Build the function expression: sin(x) or sin^(power)(x)
+    let func_expr = Expr::Func(name.clone(), Box::new(arg));
+
+    // If power was 1, just return the function call
+    if let Expr::Num(n) = power_expr {
+        if (n - 1.0).abs() < std::f64::EPSILON {
+            return Ok(func_expr);
+        }
+    }
+
+    // Otherwise, return power expression: (sin(x))^(power_expr)
+
+
+
+    Ok(Expr::BinaryOp {
+        op: Op::Pow,
+        left: Box::new(func_expr),
+        right: Box::new(power_expr),
+    })
+},
             Some(Token::LParen) => {
                 self.consume(); // consume '('
                 let expr = self.parse_expr()?;
@@ -119,34 +142,83 @@ impl Parser {
     /// Parses exponentiation (the `^` operator). Exponentiation has higher
     /// precedence than multiplication and division and is right-associative,
     /// meaning `2^3^4` is parsed as `2^(3^4)`.
-    fn parse_factor(&mut self) -> Result<Expr, String> {
-        let mut left = self.parse_primary()?;
-        // Handle implicit multiplication: e.g., 2sinx, xsinx, (x+1)sinx
-        loop {
-            match self.peek() {
-                Some(Token::Func(_)) | Some(Token::Var(_)) | Some(Token::Num(_)) | Some(Token::LParen) => {
-                    // For function, parse as a primary (which will consume its argument)
-                    let right = self.parse_primary()?;
-                    left = Expr::BinaryOp {
-                        op: Op::Mul,
-                        left: Box::new(left),
-                        right: Box::new(right),
-                    };
-                }
-                Some(Token::Pow) => {
-                    self.consume(); // Consume the '^' token.
-                    let right = self.parse_factor()?;
-                    left = Expr::BinaryOp {
-                        op: Op::Pow,
-                        left: Box::new(left),
-                        right: Box::new(right),
-                    };
-                }
-                _ => break,
+    
+fn parse_factor(&mut self) -> Result<Expr, String> {
+    // Start by parsing unary expressions to handle negation
+    let mut left = self.parse_unary()?;
+
+    loop {
+        match self.peek() {
+            // Implicit multiplication: e.g., 2sinx, xsinx, (x+1)sinx
+            Some(Token::Func(_)) | Some(Token::Var(_)) | Some(Token::Num(_)) | Some(Token::LParen) => {
+                let right = self.parse_unary()?;
+                left = Expr::BinaryOp {
+                    op: Op::Mul,
+                    left: Box::new(left),
+                    right: Box::new(right),
+                };
             }
+
+            Some(Token::Pow) => {
+                self.consume(); // consume '^'
+
+                match self.peek() {
+                    Some(Token::Num(_)) => {
+                        // Peek ahead to check if exponent is composite, e.g. 2x
+                        if let Some(next_token) = self.tokens.get(self.pos + 1) {
+                            if matches!(next_token, Token::Var(_) | Token::Num(_) | Token::Func(_) | Token::LParen) {
+                                // Parse complex exponent chain like 2x = 2 * x
+                                let right = self.parse_exponent_chain()?;
+                                left = Expr::BinaryOp {
+                                    op: Op::Pow,
+                                    left: Box::new(left),
+                                    right: Box::new(right),
+                                };
+                            } else {
+                                // Single number exponent
+                                let right = self.parse_factor()?;
+                                left = Expr::BinaryOp {
+                                    op: Op::Pow,
+                                    left: Box::new(left),
+                                    right: Box::new(right),
+                                };
+                            }
+                        } else {
+                            // End of tokens, just parse factor
+                            let right = self.parse_factor()?;
+                            left = Expr::BinaryOp {
+                                op: Op::Pow,
+                                left: Box::new(left),
+                                right: Box::new(right),
+                            };
+                        }
+                    }
+
+                    Some(Token::Var(_)) | Some(Token::Func(_)) | Some(Token::LParen) => {
+                        // Exponent is variable, function call, or parenthesis expression
+                        let right = self.parse_exponent_chain()?;
+                        left = Expr::BinaryOp {
+                            op: Op::Pow,
+                            left: Box::new(left),
+                            right: Box::new(right),
+                        };
+                    }
+
+                    _ => {
+                        return Err("Unexpected token after '^'".to_string());
+                    }
+                }
+            }
+
+            _ => break,
         }
-        Ok(left)
     }
+
+    Ok(left)
+}
+
+
+
 
     /// Parses multiplication and division operators (`*`, `/`). This precedence
     /// level is below exponentiation but above addition and subtraction.
@@ -191,5 +263,60 @@ impl Parser {
         }
         Ok(left)
     }
+/// Parse exponent expression after '^', supporting implicit multiplication.
+/// e.g., sin^2x → sin^(2 * x)
+fn parse_exponent_chain(&mut self) -> Result<Expr, String> {
+    // first part: could be number, var, function, or parenthesized expr
+    let mut expr = if let Some(Token::LParen) = self.peek() {
+        self.consume(); // consume '('
+        let inner = self.parse_expr()?;
+        match self.consume() {
+            Some(Token::RParen) => inner,
+            _ => return Err("Expected ')' after exponent expression".to_string()),
+        }
+    } else {
+        self.parse_primary()?
+    };
+
+    // Keep multiplying by next parts if there's implicit multiplication:
+    loop {
+        match self.peek() {
+            Some(Token::Var(_)) | Some(Token::Num(_)) | Some(Token::Func(_)) | Some(Token::LParen) => {
+                let next = self.parse_primary()?;
+                expr = Expr::BinaryOp {
+                    op: Op::Mul,
+                    left: Box::new(expr),
+                    right: Box::new(next),
+                };
+            }
+            _ => break,
+        }
+    }
+
+    Ok(expr)
 }
+
+fn parse_unary(&mut self) -> Result<Expr, String> {
+    if let Some(Token::Minus) = self.peek() {
+        self.consume(); // consume '-'
+        let expr = self.parse_unary()?;  // recursively parse after minus (support --x)
+        match expr {
+            Expr::Num(n) => Ok(Expr::Num(-n)),  // Negate number literals directly
+            _ => {
+                // For non-numbers, represent unary minus as multiplication by -1
+                Ok(Expr::BinaryOp {
+                    op: Op::Mul,
+                    left: Box::new(Expr::Num(-1.0)),
+                    right: Box::new(expr),
+                })
+            }
+        }
+    } else {
+        self.parse_primary()  // fallback to primary parsing
+    }
+}
+
+
+}
+
 

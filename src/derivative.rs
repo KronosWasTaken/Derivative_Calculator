@@ -4,6 +4,7 @@ use Op::*;
 
 use crate::function_table::conversion; // function_table contains derivative formulas for built-in funcs like sin, cos, etc.
 
+
 /// Computes the derivative of an expression with respect to the given variable.
 ///
 /// This is the main entry point for differentiation.
@@ -78,8 +79,7 @@ fn pow_rule(left: &Expr, right: &Expr, var: &str) -> Expr {
                 }
             }
             _ => {
-                // General power rule: f(x)^n
-                // Apply chain rule: n * f(x)^(n-1) * f'(x)
+                // General power rule: f(x)^n with constant n
                 let d_left = derivative(left, var);
                 Expr::BinaryOp {
                     op: Op::Mul,
@@ -96,9 +96,61 @@ fn pow_rule(left: &Expr, right: &Expr, var: &str) -> Expr {
                 }
             }
         },
-        _ => panic!("Power rule only implemented for powers with constant exponents"),
+        // New case: exponent is an expression, not constant
+        _ => {
+            // Apply generalized power rule:
+            // d/dx f(x)^g(x) = f(x)^g(x) * [g'(x) * ln(f(x)) + g(x) * f'(x) / f(x)]
+
+            let f = left.clone();
+            let g = right.clone();
+
+            let df = derivative(left, var);
+            let dg = derivative(right, var);
+
+            let ln_f = Expr::Func("ln".to_string(), Box::new(f.clone()));
+
+            // g'(x) * ln(f(x))
+            let term1 = Expr::BinaryOp {
+                op: Op::Mul,
+                left: Box::new(dg),
+                right: Box::new(ln_f),
+            };
+
+            // f'(x) / f(x)
+            let term2 = Expr::BinaryOp {
+                op: Op::Div,
+                left: Box::new(df),
+                right: Box::new(f.clone()),
+            };
+
+            // g(x) * (f'(x) / f(x))
+            let term3 = Expr::BinaryOp {
+                op: Op::Mul,
+                left: Box::new(g.clone()),
+                right: Box::new(term2),
+            };
+
+            // Sum inside brackets: g'(x)*ln(f(x)) + g(x)*f'(x)/f(x)
+            let sum = Expr::BinaryOp {
+                op: Op::Add,
+                left: Box::new(term1),
+                right: Box::new(term3),
+            };
+
+            // f(x)^g(x) * sum
+            Expr::BinaryOp {
+                op: Op::Mul,
+                left: Box::new(Expr::BinaryOp {
+                    op: Op::Pow,
+                    left: Box::new(f),
+                    right: Box::new(g),
+                }),
+                right: Box::new(sum),
+            }
+        }
     }
 }
+
 
 /// Product rule: d/dx [u * v] = u' * v + u * v'
 fn product_rule(left: &Expr, right: &Expr, var: &str) -> Expr {
@@ -187,137 +239,6 @@ fn func_rule(name: &str, arg: &Expr, var: &str) -> Expr {
     }
 }
 
-fn is_like_term(a: &Expr, b: &Expr) -> bool {
-    match (a, b) {
-        (Expr::Var(va), Expr::Var(vb)) => va == vb,
-        (Expr::BinaryOp { op: Op::Pow, left: la, right: ra },
-         Expr::BinaryOp { op: Op::Pow, left: lb, right: rb }) => la == lb && ra == rb,
-        (Expr::Func(fa, aa), Expr::Func(fb, ab)) => fa == fb && aa == ab,
-        _ => false,
-    }
-}
 
-fn flatten_mul(expr: &Expr) -> (f64, Expr) {
-    match expr {
-        Expr::BinaryOp { op: Op::Mul, left, right } => {
-            let (cl, bl) = flatten_mul(left);
-            let (cr, br) = flatten_mul(right);
-            let coeff = cl * cr;
-            let base = if bl == Expr::Num(1.0) {
-                br
-            } else if br == Expr::Num(1.0) {
-                bl
-            } else {
-                Expr::BinaryOp {
-                    op: Op::Mul,
-                    left: Box::new(bl),
-                    right: Box::new(br),
-                }
-            };
-            (coeff, base)
-        }
-        Expr::Num(n) => (*n, Expr::Num(1.0)),
-        _ => (1.0, expr.clone()),
-    }
-}
 
-fn extract_coeff_and_base(expr: &Expr) -> (f64, Expr) {
-    flatten_mul(expr)
-}
 
-pub fn simplify(expr: &Expr) -> Expr {
-    use Expr::*;
-    use Op::*;
-    match expr {
-        Num(n) => Num(*n),
-        Var(v) => Var(v.clone()),
-        Func(name, arg) => {
-            let simp_arg = simplify(arg);
-            Func(name.clone(), Box::new(simp_arg))
-        }
-        BinaryOp { op: Add, left, right } => {
-            // Flatten and collect all terms in the sum
-            let mut terms = vec![];
-            fn collect_terms(e: &Expr, terms: &mut Vec<Expr>) {
-                if let Expr::BinaryOp { op: Op::Add, left, right } = e {
-                    collect_terms(left, terms);
-                    collect_terms(right, terms);
-                } else {
-                    terms.push(simplify(e));
-                }
-            }
-            collect_terms(left, &mut terms);
-            collect_terms(right, &mut terms);
-            // Combine like terms
-            let mut groups: Vec<(Expr, f64)> = vec![];
-            for term in terms {
-                let (coeff, base) = extract_coeff_and_base(&term);
-                let mut found = false;
-                for (b, c) in &mut groups {
-                    if is_like_term(&base, b) {
-                        *c += coeff;
-                        found = true;
-                        break;
-                    }
-                }
-                if !found {
-                    groups.push((base, coeff));
-                }
-            }
-            // Build the sum
-            let mut result: Option<Expr> = None;
-            for (base, coeff) in groups {
-                let term = if let Expr::Num(1.0) = base {
-                    Expr::Num(coeff)
-                } else if coeff == 1.0 {
-                    base
-                } else if coeff == 0.0 {
-                    Expr::Num(0.0)
-                } else {
-                    Expr::BinaryOp {
-                        op: Op::Mul,
-                        left: Box::new(Expr::Num(coeff)),
-                        right: Box::new(base),
-                    }
-                };
-                result = match result {
-                    None => Some(term),
-                    Some(acc) => Some(Expr::BinaryOp {
-                        op: Op::Add,
-                        left: Box::new(acc),
-                        right: Box::new(term),
-                    }),
-                };
-            }
-            result.unwrap_or(Expr::Num(0.0))
-        }
-        BinaryOp { op, left, right } => {
-            let l = simplify(left);
-            let r = simplify(right);
-            match (op, &l, &r) {
-                // Addition handled above
-                // Subtraction
-                (Sub, x, Num(0.0)) => x.clone(),
-                (Sub, Num(a), Num(b)) => Num(a - b),
-                // Multiplication
-                (Mul, Num(0.0), _) | (Mul, _, Num(0.0)) => Num(0.0),
-                (Mul, Num(1.0), x) => x.clone(),
-                (Mul, x, Num(1.0)) => x.clone(),
-                (Mul, Num(a), Num(b)) => Num(a * b),
-                // Division
-                (Div, x, Num(1.0)) => x.clone(),
-                (Div, Num(a), Num(b)) => Num(a / b),
-                // Power
-                (Pow, _, Num(0.0)) => Num(1.0),
-                (Pow, x, Num(1.0)) => x.clone(),
-                (Pow, Num(a), Num(b)) => Num(a.powf(*b)),
-                // Default: reconstruct
-                _ => BinaryOp {
-                    op: op.clone(),
-                    left: Box::new(l),
-                    right: Box::new(r),
-                },
-            }
-        }
-    }
-}

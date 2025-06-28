@@ -5,6 +5,7 @@ mod tokenizer;
 mod parser;
 mod derivative;
 mod function_table;
+mod simplifier;
 
 fn print_manual() {
     println!("\n=== Derivative Calculator Manual ===");
@@ -55,55 +56,79 @@ fn main() {
     }
 
     loop {
-        print!("Enter string: ");
-        io::stdout().flush().unwrap(); // Still safe to unwrap here
+    print!("Enter expression string (or 'exit' to quit): ");
+    io::stdout().flush().unwrap();
 
-        let mut input = String::new();
-        
-        // Handle stdin reading errors explicitly
-        match io::stdin().read_line(&mut input) {
-            Ok(0) => {
-                // 0 bytes read means EOF (Ctrl+D / Ctrl+Z)
-                println!();
+    let mut input = String::new();
+
+    match io::stdin().read_line(&mut input) {
+        Ok(0) => {
+            println!();
+            break;
+        }
+        Ok(_) => {
+            let trimmed_input = input.trim();
+
+            if trimmed_input.is_empty() {
+                continue;
+            }
+
+            if trimmed_input.eq_ignore_ascii_case("exit") {
                 break;
             }
-            Ok(_) => {
-                let trimmed_input = input.trim();
 
-                if trimmed_input.is_empty() {
-                    continue;
-                }
+            // Now ask for the variable to differentiate with respect to
+            let var = loop {
+                print!("Differentiate with respect to variable (e.g., x): ");
+                io::stdout().flush().unwrap();
 
-                if trimmed_input == "exit" {
-                    break;
-                }
-
-                // Tokenize and parse with error handling
-                match tokenizer::tokenize(trimmed_input) {
-                    Ok(tokens) => {
-                        let mut parser = parser::Parser::new(tokens);
-                        match parser.parse() {
-                            Ok(expr) =>{
-                                println!("Printing the expression");
-                                println!("{}",expr);
-                                let der=derivative::derivative(&expr, "x");
-                                let simp = derivative::simplify(&der);
-                                println!("derivative:{}",simp);
-                              
-                         
-        
-                            },
-                            Err(e) => eprintln!("Parser error: {}", e),
+                let mut var_input = String::new();
+                match io::stdin().read_line(&mut var_input) {
+                    Ok(0) => {
+                        println!("\nNo input detected, exiting.");
+                        return;
+                    }
+                    Ok(_) => {
+                        let var_trimmed = var_input.trim();
+                        if var_trimmed.len() == 1 && var_trimmed.chars().all(|c| c.is_alphabetic()) {
+                            break var_trimmed.to_string();
+                        } else {
+                            println!("Please enter a single alphabetic character for the variable.");
                         }
                     }
-                    Err(e) => eprintln!("Tokenizer error: {}", e),
+                    Err(e) => {
+                        eprintln!("Input error: {}", e);
+                        return;
+                    }
                 }
-            }
-            Err(e) => {
-                // Graceful handling of IO read error
-                eprintln!("Input error: {}", e);
-                break;
+            };
+
+            // Tokenize and parse with error handling
+            match tokenizer::tokenize(trimmed_input) {
+                Ok(tokens) => {
+                    let mut parser = parser::Parser::new(tokens);
+                    match parser.parse() {
+                        Ok(expr) => {
+                            println!("Parsed expression:\n{}", expr);
+                            let der = derivative::derivative(&expr, &var);
+                            let simp = simplifier::simplify(&der);
+                            println!("Derivative with respect to '{}':\n{}", var, simp);
+                        }
+                        Err(e) => eprintln!("Parser error: {}", e),
+                    }
+                }
+                Err(e) => eprintln!("Tokenizer error: {}", e),
             }
         }
+        Err(e) => {
+            eprintln!("Input error: {}", e);
+            break;
+        }
     }
+}
+
+
+    
+
+   
 }
