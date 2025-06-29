@@ -1,9 +1,7 @@
-
 # 📐 Derivative Calculator
 
 A powerful symbolic derivative calculator built in **Rust**, featuring both a **command-line interface (CLI)** and a modern **desktop UI** using **Tauri**.
 
----
 
 ## ✨ Features
 
@@ -12,7 +10,7 @@ A powerful symbolic derivative calculator built in **Rust**, featuring both a **
 - 🧠 Symbolic differentiation with rich syntax support
 - 🧮 Mathematical expressions parsing and evaluation
 
----
+
 
 ## 🧠 Supported Syntax
 
@@ -86,6 +84,7 @@ Derivative: 2*sin(x)*cos(x)
 .
 ├── derivative_ui/     # Tauri UI
 ├── src/               # CLI source (Rust)
+├── screenshots/       # UI screenshots and images
 ├── target/
 ├── Cargo.toml
 ├── Cargo.lock
@@ -108,7 +107,12 @@ cargo install --path .
 ```
 
 ---
+---
 
+## 🖼️ UI Screenshot
+
+![Derivative Calculator UI - Main Interface](screenshots/ui1.jpg)
+---
 ## 📜 License
 
 Licensed under the MIT License.
