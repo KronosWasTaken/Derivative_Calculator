@@ -20,12 +20,21 @@ A powerful symbolic derivative calculator built in **Rust**, featuring both a **
 - sin(x)         : Sine of x
 - cos(x)         : Cosine of x
 - tan(x)         : Tangent of x
+- sinh(x)        : Hyperbolic sine
+- cosh(x)        : Hyperbolic cosine
+- tanh(x)        : Hyperbolic tangent
+- asin(x)        : Inverse sine (arcsin)
+- acos(x)        : Inverse cosine (arccos)
+- atan(x)        : Inverse tangent (arctan)
 - exp(x)         : Exponential (e^x)
 - log(x)         : Natural logarithm (ln)
 - sin^2(x)       : (sin(x))^2
 - cos^3 x        : (cos(x))^3
 - 2sinx          : 2 * sin(x)
 - x^3 + 2x + 1   : Polynomial expressions
+-sin(x)+sin^(2x)(x)+2x^x :For complexly chained problems as well
+- x^x            : x raised to the power of x (variable exponent)
+- sin^x(x)       : (sin(x))^x (function raised to a variable power) This can be done for any function
 - (x+1)*(x-1)    : Parentheses grouping
 - pi             : π ≈ 3.14159
 - e              : Euler's number ≈ 2.71828
