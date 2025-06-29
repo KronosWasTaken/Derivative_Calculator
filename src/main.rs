@@ -29,7 +29,7 @@ fn print_manual() {
     println!("- You can use implicit multiplication: 2x means 2*x, sin2x means sin(2*x)");
     println!("- You can use powers on functions: sin^2(x) means (sin(x))^2");
     println!("- You can use parentheses for clarity: sin^2(x+1)");
-    println!("- Supported functions: sin, cos, tan, exp, log, sinh, cosh, tanh, etc.");
+    println!("- Supported functions: sin, cos, tan, exp, log, sinh, cosh, tanh, etc. but use paranthesis for complex ");
     println!("- Supported constants: pi, π, e, euler, deg, degree\n");
 }
 

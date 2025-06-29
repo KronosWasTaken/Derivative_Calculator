@@ -1,0 +1,32 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Anton&display=swap');
+
+
+
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme{
+  --font-logo:"Anton", sans-serif;
+
+}
+#history::-webkit-scrollbar {
+  width:0.2rem;
+  background-color:white;
+  border-radius: 40%;
+}
+#history::-webkit-scrollbar-track {
+  background: white;
+  height: 2px;
+   border-radius: 26%;
+}
+
+#history::-webkit-scrollbar-thumb {
+  background: black;
+  height: 2px;
+  border-radius: 1px;
+}
+
+button:hover {
+  cursor: pointer;
+}
